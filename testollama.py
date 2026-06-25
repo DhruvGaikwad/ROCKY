@@ -6,8 +6,15 @@ chat = ChatOllama(
     num_predict = 700
             )
 
-user=input("what is your question?")
+print("Model Loaded Successfully")
 
-result = chat.invoke(user)
+while True:
+    
+    user=input("what is your question?").lower()
 
-print(result.content)
+    if user == "exit":
+        break
+    
+    result = chat.invoke(user)
+    
+    print(result.content)
