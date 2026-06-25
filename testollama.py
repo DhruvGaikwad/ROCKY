@@ -1,7 +1,13 @@
 from langchain_ollama import ChatOllama 
 
-chat = ChatOllama(model="llama3.2:3b")
+chat = ChatOllama(
+    model="qwen3:0.6b",
+    keep_alive="30m",
+    num_predict = 700
+            )
 
-result = chat.invoke("best driver in Formula 1 history?")
+user=input("what is your question?")
+
+result = chat.invoke(user)
 
 print(result.content)
