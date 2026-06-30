@@ -1,15 +1,17 @@
 from langchain_ollama import ChatOllama 
 from langchain.messages import SystemMessage,HumanMessage
 chat = ChatOllama(
-    model="qwen3:0.6b",
+    model="llama3.2:3b",
     keep_alive="30m",
     num_predict = 700,
-    temperature=0.3 #controls randomness of output. 
+    temperature=1.7 #controls randomness of output. 
             )
 
 #TO DO: MEMORY
 
 exit = ["exit", "quit", "close", "bye", "goodbye"]
+
+
 messages = [
     SystemMessage(
         content="""
@@ -71,7 +73,6 @@ ROCKY:
 "Happy help. Good teamwork."
 
 When answering technical questions, think carefully, but keep the translated speech style throughout the response.
-
 """
     )
 ]
@@ -83,6 +84,7 @@ while True:
     user=input("what is your question?").lower()
 
     if user in exit : 
+        print("You leave now. I wait. Happy return later")
         break
 
 
