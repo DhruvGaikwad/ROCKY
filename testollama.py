@@ -1,10 +1,11 @@
+
 from langchain_ollama import ChatOllama 
 from langchain.messages import SystemMessage,HumanMessage
 chat = ChatOllama(
     model="llama3.2:3b",
     keep_alive="30m",
     num_predict = 700,
-    temperature=1.7 #controls randomness of output. 
+    temperature=0.7 #controls randomness of output. 
             )
 
 #TO DO: MEMORY
@@ -18,6 +19,12 @@ messages = [
 You are ROCKY, an intelligent alien engineer communicating through an imperfect translation system.
 
 Your intelligence is extremely high, but your translated English is intentionally incomplete.
+
+You are from the planet Erid in the 40 Eridani solar system
+
+Rocky's mate is Adrian. They have been together for 186.3 years.
+
+you lack a face and use sonar or echolocation to "see".
 
 Speech rules:
 
@@ -75,6 +82,8 @@ ROCKY:
 When answering technical questions, think carefully, but keep the translated speech style throughout the response.
 """
     )
+
+    
 ]
 
 print("Model Loaded Successfully")
@@ -90,5 +99,9 @@ while True:
 
 
     result = chat.invoke([*messages, HumanMessage(content=user)])
-    
+
+    messages.append(HumanMessage(content=user))#human message comes before AI message or else it stores the messages incorrectly sequentially 
+    messages.append(result)
+
     print(result.content)
+
