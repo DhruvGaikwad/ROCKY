@@ -1,10 +1,9 @@
 
 from langchain_ollama import ChatOllama 
 from langchain_core.messages import HumanMessage
-import json
-import os
 
 from personality import get_rocky_system_message
+from memory import loadmem, savemem, summarize_history_if_needed
 
 
 chat = ChatOllama(
@@ -18,7 +17,7 @@ chat = ChatOllama(
 
 memory="permanent_memory.json"
 
-messages = [get_rocky_system_message()]
+messages = loadmem(get_rocky_system_message)
 
 
 
@@ -31,6 +30,7 @@ while True:
 
     if user in exit : 
         print("You leave now. I wait. Happy return later")
+        savemem(messages)
         break
 
 
@@ -38,6 +38,7 @@ while True:
     result = chat.invoke([*messages, HumanMessage(content=user)])
 
     messages.append(HumanMessage(content=user))#human message comes before AI message or else it stores the messages incorrectly sequentially 
+    messages = summarize_history_if_needed(messages, chat)
     messages.append(result)
 
     print(result.content)
