@@ -1,6 +1,9 @@
 import subprocess
 import os
-import speech_recognition as sr
+import json
+import wave
+import pyaudio
+from vosk import Model, KaldiRecognizer
 import pyautogui as pyau
 import datetime as dt 
 from langchain_ollama import ChatOllama 
@@ -26,14 +29,28 @@ memory = "permanent_memory.json"
 messages = loadmem(get_ev_system_message)
 
 exit_keywords = ["exit", "quit", "close", "bye", "goodbye"]
-screenshot_key=["clip that", "screenshot", "capture that","ev clip that","chat clip that"]
+screenshot_key = ["clip that", "screenshot", "capture that", "ev clip that", "chat clip that"]
 
-console.print("[bold green]Model Loaded Successfully. EV voice-only loop active.[/bold green]")
+# --- VOSK SETUP ---
+MODEL_PATH = "vosk_model"
+if not os.path.exists(MODEL_PATH):
+    console.print(f"[bold red]Error: Vosk model folder '{MODEL_PATH}' not found! Download one from alphacephei.com/vosk/models[/bold red]")
+    exit(1)
 
-#ALSA LOGS SUPRESSION (THIS IS SOO ANNOYING)
+old_err_init = os.open(os.devnull, os.O_WRONLY)
+old_stderr_init = os.dup(2)
+os.dup2(old_err_init, 2)
+os.close(old_err_init)
 
+vosk_model = Model(MODEL_PATH)
+
+os.dup2(old_stderr_init, 2)
+os.close(old_stderr_init)
+
+console.print("[bold green]Model Loaded Successfully. EV voice-only loop active (100% Local Vosk + Ollama + Piper).[/bold green]")
+
+# ALSA LOGS SUPPRESSION
 def mute_stderr(): 
-    """Temporarily redirects low-level C stderr to /dev/null to kill ALSA/PortAudio spam."""
     devnull = os.open(os.devnull, os.O_WRONLY)
     old_stderr = os.dup(2)
     os.dup2(devnull, 2)
@@ -41,12 +58,10 @@ def mute_stderr():
     return old_stderr
 
 def unmute_stderr(old_stderr):
-    """Restores standard error."""
     os.dup2(old_stderr, 2)
     os.close(old_stderr)
 
 def speak_with_piper(text):
-    """Sends text to Piper via stdin and plays audio via aplay with muted logs."""
     output_audio = "ev_output.wav"
     piper_executable = "./piper/piper"
     model_path = "./piper/glados.onnx"
@@ -69,69 +84,81 @@ def speak_with_piper(text):
         console.print(f"[bold red][System Error: Audio generation failed - {e}][/bold red]")
 
 def listen_to_user():
-    """Captures microphone input while suppressing PortAudio/ALSA startup warnings."""
-    r = sr.Recognizer()
+    """Captures microphone input locally via PyAudio and transcribes via Vosk."""
+    recognizer = KaldiRecognizer(vosk_model, 16000)
     
     old_err = mute_stderr()
+    p = pyaudio.PyAudio()
     try:
-        with sr.Microphone() as source:
-            unmute_stderr(old_err)
-            console.print("[bold yellow] Listening... Speak your command.[/bold yellow]")
-            r.adjust_for_ambient_noise(source, duration=0.5)
-            
-            old_err = mute_stderr()
-            audio = r.listen(source, timeout=5, phrase_time_limit=10)
-            unmute_stderr(old_err)
-            
-            console.print("[cyan]Processing speech...[/cyan]")
-            text = r.recognize_google(audio)
-            console.print(f"[green]You said: \"{text}\"[/green]")
-            return text.lower()
-            
-    except sr.WaitTimeoutError:
+        stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4000)
+        stream.start_stream()
         unmute_stderr(old_err)
-        console.print("[dim red]Listening timed out. No speech detected.[/dim red]")
-        return ""
-    except sr.UnknownValueError:
-        unmute_stderr(old_err)
-        console.print("[dim red]Could not understand audio.[/dim red]")
-        return ""
+        
+        console.print("[bold yellow] Listening... Speak your command.[/bold yellow]")
+        
+        while True:
+            data = stream.read(4000, exception_on_overflow=False)
+            if recognizer.AcceptWaveform(data):
+                result = json.loads(recognizer.Result())
+                text = result.get("text", "").strip()
+                if text:
+                    console.print(f"[green]You said: \"{text}\"[/green]")
+                    stream.stop_stream()
+                    stream.close()
+                    p.terminate()
+                    return text.lower()
+                    
     except Exception as e:
         unmute_stderr(old_err)
-        console.print(f"[bold red]Speech Recognition Error: {e}[/bold red]")
+        console.print(f"[bold red]Vosk Speech Recognition Error: {e}[/bold red]")
+        try:
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+        except:
+            pass
         return ""
 
 while True:
-    user = listen_to_user()
+    try:
+        user = listen_to_user()
+        
+        if not user:
+            continue
+        
+        if user in exit_keywords: 
+            byebye = "Logging off. Don't let the magic smoke out."
+            console.print(f"[bold yellow]{byebye}[/bold yellow]")
+            speak_with_piper(byebye)
+            savemem(messages)
+            break
+        
+        if user in screenshot_key:
+            screenshot_message = "screenshot taken"
+            console.print(f"[bold yellow]{screenshot_message}[/bold yellow]")
+            speak_with_piper(screenshot_message)
+            timestamp = dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+            filename = f"screenshot_{timestamp}.png"
+            pyau.screenshot(filename)
+            continue  # Prevents passing "clip that" to Llama
+                
+        result = chat.invoke([*messages, HumanMessage(content=user)])
+        
+        messages.append(HumanMessage(content=user))
+        messages = summarize_history_if_needed(messages, chat)
+        messages.append(result)
+        
+        console.print(Panel(
+            result.content,
+            title="EV",
+            subtitle="EV_1.3",
+            style="bold magenta",
+            title_align="left",
+        ))
+        
+        speak_with_piper(result.content)
 
-    if user in exit_keywords: 
-        byebye = "Logging off. Don't let the magic smoke out."
-        console.print(f"[bold yellow]{byebye}[/bold yellow]")
-        speak_with_piper(byebye)
-        savemem(messages)
-        break
-
-    if user in screenshot_key:
-        screenshot_message = "screenshot taken"
-        console.print(f"[bold yellow]{screenshot_message}[/bold yellow]")
-        speak_with_piper(screenshot_message)
-        timestamp =dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-        filename = f"screenshot_{timestamp}.png"
-        pyau.screenshot(filename)
-        pyau.save(filename)
-
-    result = chat.invoke([*messages, HumanMessage(content=user)])
-
-    messages.append(HumanMessage(content=user))
-    messages = summarize_history_if_needed(messages, chat)
-    messages.append(result)
-
-    console.print(Panel(
-        result.content,
-        title="EV",
-        subtitle="EV_1.3",
-        style="bold magenta",
-        title_align="left",
-    ))
-
-    speak_with_piper(result.content)
+    except Exception as loop_error: 
+        console.print(f"[bold red]Loop Error: {loop_error}[/bold red]")
+        speak_with_piper("something went wrong, continuing..")
+        continue

@@ -1,2 +1,7 @@
-.env 
-
+Rockyvenv/
+__pycache__/
+piper/
+*.tar.gz*
+permanent_memory.json
+wget-log
+vosk_model/
