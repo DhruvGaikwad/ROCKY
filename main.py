@@ -1,7 +1,6 @@
 import subprocess
 import os
 import json
-import wave
 import pyaudio
 from vosk import Model, KaldiRecognizer
 import pyautogui as pyau
@@ -126,14 +125,14 @@ while True:
         if not user:
             continue
         
-        if user in exit_keywords: 
+        if any(keyword in user for keyword in exit_keywords):
             byebye = "Logging off. Don't let the magic smoke out."
             console.print(f"[bold yellow]{byebye}[/bold yellow]")
             speak_with_piper(byebye)
             savemem(messages)
             break
         
-        if user in screenshot_key:
+        if any(keyword in user for keyword in screenshot_key):
             screenshot_message = "screenshot taken"
             console.print(f"[bold yellow]{screenshot_message}[/bold yellow]")
             speak_with_piper(screenshot_message)
