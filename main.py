@@ -1,6 +1,8 @@
 import subprocess
 import os
 import speech_recognition as sr
+import pyautogui as pyau
+import datetime as dt 
 from langchain_ollama import ChatOllama 
 from langchain_core.messages import HumanMessage
 
@@ -24,9 +26,12 @@ memory = "permanent_memory.json"
 messages = loadmem(get_ev_system_message)
 
 exit_keywords = ["exit", "quit", "close", "bye", "goodbye"]
+screenshot_key=["clip that", "screenshot", "capture that","ev clip that","chat clip that"]
+
 console.print("[bold green]Model Loaded Successfully. EV voice-only loop active.[/bold green]")
 
 #ALSA LOGS SUPRESSION (THIS IS SOO ANNOYING)
+
 def mute_stderr(): 
     """Temporarily redirects low-level C stderr to /dev/null to kill ALSA/PortAudio spam."""
     devnull = os.open(os.devnull, os.O_WRONLY)
@@ -106,8 +111,14 @@ while True:
         savemem(messages)
         break
 
-    if not user:
-        continue
+    if user in screenshot_key:
+        screenshot_message = "screenshot taken"
+        console.print(f"[bold yellow]{screenshot_message}[/bold yellow]")
+        speak_with_piper(screenshot_message)
+        timestamp =dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        filename = f"screenshot_{timestamp}.png"
+        pyau.screenshot(filename)
+        pyau.save(filename)
 
     result = chat.invoke([*messages, HumanMessage(content=user)])
 
