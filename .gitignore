@@ -5,3 +5,4 @@ piper/
 permanent_memory.json
 wget-log
 vosk_model/
+*.wav
