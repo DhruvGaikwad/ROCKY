@@ -7,11 +7,12 @@ import pyautogui as pyau
 import datetime as dt 
 from langchain_ollama import ChatOllama 
 from langchain_core.messages import HumanMessage
+import winsound
 
 from personality import get_ev_system_message
 from memory import loadmem, savemem, summarize_history_if_needed
 
-from rich.console import Console
+from rich.console import Console #use for fancy console print
 from rich.panel import Panel
 
 console = Console()
@@ -27,10 +28,10 @@ chat = ChatOllama(
 memory = "permanent_memory.json"
 messages = loadmem(get_ev_system_message)
 
-exit_keywords = ["exit", "quit", "close", "bye", "goodbye"]
+exit_keywords = ["exit","bye", "goodbye","take five"]
 screenshot_key = ["clip that", "screenshot", "capture that", "ev clip that", "chat clip that"]
 
-# --- VOSK SETUP ---
+# VOSK SETUP 
 MODEL_PATH = "vosk_model"
 if not os.path.exists(MODEL_PATH):
     console.print(f"[bold red]Error: Vosk model folder '{MODEL_PATH}' not found! Download one from alphacephei.com/vosk/models[/bold red]")
@@ -46,7 +47,7 @@ vosk_model = Model(MODEL_PATH)
 os.dup2(old_stderr_init, 2)
 os.close(old_stderr_init)
 
-console.print("[bold green]Model Loaded Successfully. EV voice-only loop active (100% Local Vosk + Ollama + Piper).[/bold green]")
+console.print("[bold green]Model Loaded Successfully. EV voice-only loop active .[/bold green]")
 
 # ALSA LOGS SUPPRESSION
 def mute_stderr(): 
@@ -62,7 +63,7 @@ def unmute_stderr(old_stderr):
 
 def speak_with_piper(text):
     output_audio = "ev_output.wav"
-    piper_executable = "./piper/piper"
+    piper_executable = "./piper/piper.exe"
     model_path = "./piper/glados.onnx"
     
     try:
@@ -75,9 +76,7 @@ def speak_with_piper(text):
         process.communicate(input=text.encode("utf-8"))
         
         if os.path.exists(output_audio):
-            old_err = mute_stderr()
-            subprocess.run(["aplay", "-q", output_audio], check=True)
-            unmute_stderr(old_err)
+            winsound.PlaySound(output_audio, winsound.SND_FILENAME)
             
     except Exception as e:
         console.print(f"[bold red][System Error: Audio generation failed - {e}][/bold red]")
