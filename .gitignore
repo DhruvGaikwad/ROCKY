@@ -6,6 +6,7 @@ permanent_memory.json
 wget-log
 vosk_model/
 *.wav
+*.png
 docs/
 chroma_db/
 
